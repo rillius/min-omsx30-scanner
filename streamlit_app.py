@@ -1,124 +1,84 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
-import numpy as np
+import time
 
-# --- 1. KONFIGURATION AV SIDAN ---
-st.set_page_config(page_title="OMXS30 Momentum Scanner", layout="wide", page_icon="📈")
+# Sätt sidkonfiguration
+st.set_page_config(page_title="OMXS30 Scanner Pro", layout="wide")
 
-# Stilren design
-st.markdown("""
-    <style>
-    .main { background-color: #0e1117; }
-    .stDataFrame { background-color: #1f2937; border-radius: 10px; }
-    </style>
-    """, unsafe_allow_html=True)
+st.title("🇸🇪 OMXS30 Scanner & Kalkylator")
+st.write("Hämtar realtidsdata och beräknar antal aktier baserat på din insats.")
 
-st.title("🚀 OMXS30 Pro Scanner")
-st.write("Realtidsdata med momentum-sviter och investeringskalkylator.")
+# Lista på OMXS30 bolag (Ticker-symboler för Yahoo Finance)
+OMXS30_TICKERS = {
+    "ABB": "ABB.ST", "Alfa Laval": "ALFA.ST", "Assa Abloy": "ASSA-B.ST",
+    "AstraZeneca": "AZN.ST", "Atlas Copco A": "ATCO-A.ST", "Atlas Copco B": "ATCO-B.ST",
+    "Autoliv": "ALIV-SDB.ST", "Boliden": "BOL.ST", "Electrolux": "ELUX-B.ST",
+    "Ericsson": "ERIC-B.ST", "Essity": "ESSITY-B.ST", "Evolution": "EVO.ST",
+    "Getinge": "GETI-B.ST", "H&M": "HM-B.ST", "Hexagon": "HEXA-B.ST",
+    "Investor B": "INVE-B.ST", "Kinvnevik B": "KINV-B.ST", "Nibe": "NIBE-B.ST",
+    "Nordea": "NDA-SE.ST", "SBB B": "SBB-B.ST", "SCA B": "SCA-B.ST",
+    "SEB A": "SEB-A.ST", "Sinch": "SINCH.ST", "Skanska": "SKAF-B.ST",
+    "SKF B": "SKF-B.ST", "Handelsbanken A": "SHB-A.ST", "Swedbank A": "SWED-A.ST",
+    "Tele2 B": "TEL2-B.ST", "Telia": "TELIA.ST", "Volvo B": "VOLV-B.ST"
+}
 
-# --- 2. SIDOPANEL (INSTÄLLNINGAR) ---
-with st.sidebar:
-    st.header("Investeringskalkylator")
-    insats = st.number_input("Välj fiktiv insats (SEK)", value=10000, step=1000)
-    st.info(f"Kalkylerna nedan baseras på en investering om {insats:,} kr.")
-    st.markdown("---")
-    st.write("Systemet analyserar institutionellt flöde (Flow) och teknisk överhettning (RSI).")
-
-# --- 3. DATA-FUNKTION ---
-def get_stock_data(insats_sek):
-    # Urval av tunga OMX-bolag
-    tickers = {
-        "INVE-B.ST": "Investor B",
-        "VOLV-B.ST": "Volvo B",
-        "SAAB-B.ST": "Saab B",
-        "AZN.ST": "AstraZeneca",
-        "EVO.ST": "Evolution",
-        "ATCO-A.ST": "Atlas Copco A",
-        "ABB.ST": "ABB Ltd",
-        "HM-B.ST": "H&M B"
-    }
+def get_stock_data(insats):
+    results = []
+    progress_bar = st.progress(0)
+    status_text = st.empty()
     
-    data_list = []
+    total = len(OMXS30_TICKERS)
     
-    for t, name in tickers.items():
-        stock = yf.Ticker(t)
-        # Hämta 60 dagars historik för att beräkna RSI och sviter
-        df = stock.history(period="60d")
-        
-        if df.empty: continue
-        
-        # Beräkna Svit (Hur många dagar i rad har den gått upp?)
-        df['Plus'] = df['Close'] > df['Close'].shift(1)
-        streak = 0
-        for val in reversed(df['Plus']):
-            if val: streak += 1
-            else: break
+    for i, (name, ticker) in enumerate(OMXS30_TICKERS.items()):
+        status_text.text(f"Hämtar data för {name} ({i+1}/{total})...")
+        try:
+            # En liten paus för att inte bli blockerad av Yahoo (Rate Limit Fix)
+            time.sleep(0.5) 
             
-        # Beräkna RSI (Relative Strength Index)
-        delta = df['Close'].diff()
-        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-        rsi = 100 - (100 / (1 + (gain/loss))).iloc[-1]
-        
-        # Beräkna Gap % (Skillnad mellan dagens öppning och gårdagens stängning)
-        gap = ((df['Open'].iloc[-1] - df['Close'].iloc[-2]) / df['Close'].iloc[-2]) * 100
-        
-        # LOGIK: Expected Return (%) baserat på backtest-mönster
-        # Om svit är 1-4 dagar och RSI < 70 = Hög sannolikhet för fortsättning
-        if streak > 0 and streak < 5 and rsi < 70:
-            exp_return_pct = 3.2
-            flow = "🏛️ Institutionellt"
-        elif rsi > 75:
-            exp_return_pct = -1.5  # Risk för rekyl
-            flow = "⚠️ Överhettad"
-        else:
-            exp_return_pct = 0.5
-            flow = "🏦 Avvaktande"
+            stock = yf.Ticker(ticker)
+            # Vi hämtar bara de 5 senaste dagarna för att vara snabba
+            df = stock.history(period="5d")
+            
+            if not df.empty:
+                current_price = df['Close'].iloc[-1]
+                prev_price = df['Close'].iloc[-2]
+                change = ((current_price - prev_price) / prev_price) * 100
+                
+                # Beräkna hur många aktier man får för insatsen
+                antal_aktier = int(insats // current_price)
+                
+                results.append({
+                    "Bolag": name,
+                    "Kurs (SEK)": round(current_price, 2),
+                    "Utveckling idag (%)": round(change, 2),
+                    f"Antal aktier vid {insats}:-": antal_aktier
+                })
+        except Exception as e:
+            st.warning(f"Kunde inte hämta {name}: {e}")
+            
+        progress_bar.progress((i + 1) / total)
+    
+    status_text.text("Klar!")
+    return pd.DataFrame(results)
 
-        exp_vinst_sek = (exp_return_pct / 100) * insats_sek
-        
-        data_list.append({
-            "Bolag": name,
-            "Svit": f"🟢 {streak}" if streak > 0 else "🔴 0",
-            "Flow": flow,
-            "Pris (SEK)": round(df['Close'].iloc[-1], 2),
-            "RSI": round(rsi, 1),
-            "Gap %": f"{round(gap, 2)}%",
-            "Exp. Return": f"{exp_return_pct}%",
-            "Förväntad Vinst": f"{round(exp_vinst_sek, 2)} kr"
-        })
-        
-    return pd.DataFrame(data_list)
+# Användargränssnitt i sidopanelen
+st.sidebar.header("Inställningar")
+insats = st.sidebar.number_input("Din önskade insats (SEK)", min_value=100, value=10000, step=100)
 
-# --- 4. VISNING ---
-if st.button('🔄 Uppdatera Realtidsdata'):
-    with st.spinner('Hämtar kurser från börsen...'):
+if st.button("Uppdatera realtidsdata"):
+    with st.spinner("Vänligen vänta, optimerar anrop till Yahoo Finance..."):
         df_results = get_stock_data(insats)
         
-        # Visa tabellen
-        st.subheader(f"Marknadsöversikt - {insats:,} kr insats")
-        st.dataframe(
-            df_results.style.background_gradient(subset=['RSI'], cmap='RdYlGn_r'),
-            use_container_width=True
-        )
-        
-        # Strategiska råd
-        st.markdown("---")
-        st.subheader("🎯 Strategiska val")
-        col1, col2 = st.columns(2)
-        
-        best_pick = df_results.sort_values(by="RSI", ascending=True).iloc[0]
-        with col1:
-            st.success(f"**Bästa Momentum-läge:** {best_pick['Bolag']}")
-            st.write(f"Låg RSI ({best_pick['RSI']}) kombinerat med svit ger statistiskt övertag.")
+        if not df_results.empty:
+            # Sortera efter bäst utveckling idag
+            df_results = df_results.sort_values(by="Utveckling idag (%)", ascending=False)
             
-        with col2:
-            st.info("**Tips:**")
-            st.write("Fokusera på bolag med Flow '🏛️ Institutionellt' för stabilare swings.")
-else:
-    st.info("Klicka på knappen ovan för att starta scannern.")
+            # Visa tabellen
+            st.dataframe(df_results, use_container_width=True, hide_index=True)
+            
+            st.success(f"Data uppdaterad kl. {time.strftime('%H:%M:%S')}")
+        else:
+            st.error("Kunde inte hämta någon data. Prova igen om en stund.")
 
-# Footer
-st.markdown("---")
-st.caption("Data levereras med 15 min fördröjning via Yahoo Finance. Investeringskalkylen är statistisk och utgör ej finansiell rådgivning.")
+st.info("Tips: Om du får 'Rate Limit'-fel, vänta 30 sekunder och prova igen. Vi har nu lagt in en fördröjning i koden för att minska risken.")
