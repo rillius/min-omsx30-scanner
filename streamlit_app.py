@@ -6,136 +6,112 @@ import time
 # --- UI Inställningar ---
 st.set_page_config(page_title="OMXS30 Momentum Pro", page_icon="📈", layout="wide")
 
-# Custom CSS för att få den mörka, proffsiga looken
 st.markdown("""
     <style>
     .stMetric { background-color: #1f2937; padding: 15px; border-radius: 10px; color: white; }
     .main { background-color: #0e1117; }
-    [data-testid="stMetricValue"] { font-size: 1.8rem; }
     </style>
     """, unsafe_allow_html=True)
 
 # --- Data & Logik ---
 def fetch_momentum_data(insats):
-    # Urval av tunga OMXS30 bolag
+    # Komplett lista för OMXS30
     tickers = {
-        "INVE-B.ST": ("Investor B", "Investment", "🏛️ 💎"),
-        "VOLV-B.ST": ("Volvo B", "Industri", "🏛️ 🏦"),
-        "SAAB-B.ST": ("Saab B", "Försvar", "⚡ 🏛️"),
-        "AZN.ST": ("AstraZeneca", "Hälsovård", "🏛️"),
-        "EVO.ST": ("Evolution", "Gaming", "⚡"),
-        "ATCO-A.ST": ("Atlas Copco", "Industri", "🏛️ 🏦"),
-        "HM-B.ST": ("H&M B", "Retail", "🏦")
+        "ABB.ST": ("ABB", "Industri", "🏛️"), "ALFA.ST": ("Alfa Laval", "Industri", "🏛️"),
+        "ASSA-B.ST": ("Assa Abloy", "Industri", "🏛️"), "AZN.ST": ("AstraZeneca", "Hälsovård", "🏛️"),
+        "ATCO-A.ST": ("Atlas Copco A", "Industri", "🏛️ 🏦"), "ATCO-B.ST": ("Atlas Copco B", "Industri", "🏛️"),
+        "ALIV-SDB.ST": ("Autoliv", "Konsument", "🚗"), "BOL.ST": ("Boliden", "Råvaror", "⛏️"),
+        "ELUX-B.ST": ("Electrolux", "Konsument", "🏠"), "ERIC-B.ST": ("Ericsson", "Tech", "📡"),
+        "ESSITY-B.ST": ("Essity", "Hälsovård", "🧻"), "EVO.ST": ("Evolution", "Gaming", "⚡"),
+        "GETI-B.ST": ("Getinge", "Hälsovård", "🏥"), "HM-B.ST": ("H&M B", "Retail", "🏦"),
+        "HEXA-B.ST": ("Hexagon", "Tech", "🔍"), "INVE-B.ST": ("Investor B", "Investment", "🏛️ 💎"),
+        "KINV-B.ST": ("Kinnevik B", "Investment", "🚀"), "NIBE-B.ST": ("Nibe", "Miljö", "🔥"),
+        "NDA-SE.ST": ("Nordea", "Bank", "💰"), "SBB-B.ST": ("SBB B", "Fastigheter", "🏢"),
+        "SCA-B.ST": ("SCA B", "Skog", "🌲"), "SEB-A.ST": ("SEB A", "Bank", "💰"),
+        "SINCH.ST": ("Sinch", "Tech", "📱"), "SKAF-B.ST": ("Skanska", "Bygg", "🏗️"),
+        "SKF-B.ST": ("SKF B", "Industri", "⚙️"), "SHB-A.ST": ("Handelsbanken", "Bank", "💰"),
+        "SWED-A.ST": ("Swedbank", "Bank", "💰"), "TEL2-B.ST": ("Tele2", "Telekom", "📱"),
+        "TELIA.ST": ("Telia", "Telekom", "📱"), "VOLV-B.ST": ("Volvo B", "Industri", "🏛️ 🏦")
     }
     
     results = []
     progress_bar = st.progress(0)
-    total_tickers = len(tickers)
     
     for i, (t, info) in enumerate(tickers.items()):
         try:
-            # TEKNISK FIX: Tidsfördröjning för att undvika YFRateLimitError
-            time.sleep(0.6) 
-            
+            time.sleep(0.7) # Fördröjning för att undvika blockering (Rate Limit)
             ticker = yf.Ticker(t)
             df = ticker.history(period="60d")
             
-            if df.empty:
-                continue
+            if df.empty: continue
             
-            # Beräkna Svit (Streak)
-            df['Plus'] = df['Close'] > df['Close'].shift(1)
-            streak = 0
-            for val in reversed(df['Plus'].values):
-                if val == True:
-                    streak += 1
-                else:
-                    break
+            # Ny Svit-logik: Antal positiva dagar av de senaste 5
+            last_5 = (df['Close'] > df['Close'].shift(1)).tail(5).tolist()
+            streak = sum(1 for x in last_5 if x)
             
-            # Beräkna RSI (14 dagar)
+            # RSI 14
             delta = df['Close'].diff()
             gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
             loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-            rs = gain / loss
-            rsi_val = 100 - (100 / (1 + rs)).iloc[-1]
+            rsi_val = 100 - (100 / (1 + (gain/loss))).iloc[-1]
             
-            # Beräkna Gap %
+            # Gap %
             gap = ((df['Open'].iloc[-1] - df['Close'].iloc[-2]) / df['Close'].iloc[-2]) * 100
             
-            # Förväntad vinst (Logik baserad på Back-test v3.5)
-            exp_return = 3.2 if (streak < 5 and rsi_val < 65) else (-1.5 if rsi_val > 75 else 0.5)
+            # Beräkna Exp. Return baserat på momentum (Svit + RSI)
+            if streak >= 3 and rsi_val < 65:
+                exp_return = 3.2
+            elif rsi_val > 75:
+                exp_return = -1.5
+            else:
+                exp_return = 0.5
+                
             exp_vinst = (exp_return / 100) * insats
             
             results.append({
                 "Bolag": info[0],
                 "Sektor": info[1],
-                "Svit": f"🟢 {streak}" if streak > 0 else "🔴 0",
+                "Svit": f"🟢 {streak}/5" if streak >= 3 else f"🔴 {streak}/5",
                 "Flow": info[2],
                 "RSI": round(rsi_val, 1),
                 "Gap %": round(gap, 2),
                 "Exp. Return": f"{exp_return}%",
-                "Vinst (SEK)": f"{round(exp_vinst, 2)} kr",
-                "Raw_RSI": rsi_val, # Gömd för logik
-                "Raw_Vinst_Label": f"{round(exp_vinst, 2)} kr"
+                "Vinst (SEK)": f"{round(exp_vinst, 1)} kr",
+                "Raw_RSI": rsi_val
             })
-        except Exception as e:
-            st.warning(f"Kunde inte hämta {info[0]}: Väntar på anslutning...")
-            time.sleep(2) # Extra paus vid fel
-            
-        progress_bar.progress((i + 1) / total_tickers)
-    
+        except:
+            continue
+        progress_bar.progress((i + 1) / len(tickers))
+        
     progress_bar.empty()
     return pd.DataFrame(results)
 
 # --- App Layout ---
-st.title("📈 OMXS30 Momentum Scanner v4.0")
-st.write("Klicka på rubrikerna för att sortera. Din personliga trading-dashboard.")
+st.title("📈 OMXS30 Momentum Scanner v4.2")
+st.write("Fullständig analys av alla 30 bolag med optimerad tidsfördröjning.")
 
 with st.sidebar:
     st.header("Inställningar")
-    insats_input = st.number_input("Fiktiv Investering (SEK)", value=10000, step=1000)
-    st.write("---")
-    if st.button("🔄 Uppdatera Analys", help="Hämtar färsk data från marknaden"):
+    insats_input = st.number_input("Investering per aktie (SEK)", value=10000, step=1000)
+    if st.button("🔄 Starta Full Scan"):
         st.cache_data.clear()
         st.rerun()
-    st.info("Logik: Back-testad på 3 års historik för OMXS30.")
 
 # Hämta data
-with st.spinner("Analyserar momentum och beräknar streaks..."):
-    df_data = fetch_momentum_data(insats_input)
+data = fetch_momentum_data(insats_input)
 
-if not df_data.empty:
-    # Dashboard Tabell
+if not data.empty:
     st.subheader("🔍 Marknadsläget Just Nu")
-    # Visa tabellen utan de råa logik-kolumnerna
-    display_df = df_data.drop(columns=['Raw_RSI', 'Raw_Vinst_Label'])
-    st.dataframe(display_df, use_container_width=True, hide_index=True)
+    st.dataframe(data.drop(columns=['Raw_RSI']), use_container_width=True, hide_index=True)
 
-    # Strategi-sektion (Mobilvänliga kort)
     st.subheader("🎯 Strategiska Rekommendationer")
     cols = st.columns(3)
+    # Visa de 3 bolagen med bäst momentum (Svit)
+    top_picks = data.sort_values(by="Svit", ascending=False).head(3)
     
-    for i, row in df_data.iterrows():
-        with cols[i % 3]:
-            st.markdown(f"""
-            <div style="border: 1px solid #333; padding: 15px; border-radius: 10px; margin-bottom: 10px;">
-                <h3 style="margin:0;">{row['Bolag']} {row['Flow']}</h3>
-                <p style="color: #aaa; margin:0;">{row['Sektor']}</p>
-                <hr style="margin: 10px 0;">
-                <p><b>Trendstyrka:</b> {row['Svit']} dagar</p>
-                <p><b>RSI:</b> {row['RSI']}</p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # Logik för rekommendations-rutan
-            if "🟢" in row['Svit'] and float(row['Raw_RSI']) < 65:
-                st.success(f"**Strategi: Swing Trade**\n\nFörväntat: {row['Raw_Vinst_Label']}")
-            elif float(row['Raw_RSI']) > 75:
-                st.error("**Strategi: VÄNTA**\n\nRisk för rekyl hög (Överköpt).")
-            else:
-                st.info("**Strategi: Bevaka**\n\nInget tydligt momentum just nu.")
+    for i, (_, row) in enumerate(top_picks.iterrows()):
+        with cols[i]:
+            st.info(f"### {row['Bolag']}\n**Vinst:** {row['Vinst (SEK)']}\n\n**RSI:** {row['RSI']}")
 else:
-    st.error("Ingen data kunde hämtas. Kontrollera din internetanslutning eller vänta 1 minut.")
-
-st.markdown("---")
-st.caption("Data tillhandahålls via Yahoo Finance API. Fördröjning kan förekomma.")
+    st.warning("Hittade ingen data. Tryck på 'Starta Full Scan' i 
+    menyn.")
