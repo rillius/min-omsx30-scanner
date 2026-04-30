@@ -6,10 +6,12 @@ import time
 # --- UI Inställningar ---
 st.set_page_config(page_title="OMXS30 Momentum Pro", page_icon="📈", layout="wide")
 
+# Styling för att fixa de mörka korten och göra tabellen läsbar
 st.markdown("""
     <style>
-    .stMetric { background-color: #1f2937; padding: 15px; border-radius: 10px; color: white; }
     .main { background-color: #0e1117; }
+    .stMetric { background-color: #1f2937 !important; padding: 20px; border-radius: 12px; border: 1px solid #3b82f6; }
+    div[data-testid="stExpander"] { border: none !important; box-shadow: none !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -41,35 +43,32 @@ def fetch_momentum_data(insats):
             time.sleep(0.7) 
             ticker = yf.Ticker(t)
             df = ticker.history(period="60d")
-            
             if df.empty: continue
             
-            # Svit-logik
+            # Svit
             closes = df['Close'].tail(6).tolist()
             streak = 0
             for j in range(len(closes)-1, 0, -1):
-                if closes[j] > closes[j-1]:
-                    streak += 1
-                else:
-                    break
+                if closes[j] > closes[j-1]: streak += 1
+                else: break
             
-            # RSI 14
+            # RSI
             delta = df['Close'].diff()
             gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
             loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
             rsi_val = 100 - (100 / (1 + (gain/loss))).iloc[-1]
             
-            # Gap %
+            # Gap
             gap = ((df['Open'].iloc[-1] - df['Close'].iloc[-2]) / df['Close'].iloc[-2]) * 100
             
-            # Exp. Return
-            exp_return = 3.2 if (streak >= 2 and rsi_val < 65) else (-1.5 if rsi_val > 75 else 0.5)
+            # Logik
+            exp_return = 3.2 if (streak >= 2 and rsi_val < 60) else (0.5 if rsi_val < 70 else -1.2)
             exp_vinst = (exp_return / 100) * insats
             
             results.append({
                 "Bolag": info[0],
                 "Sektor": info[1],
-                "Svit": f"🟢 {streak}" if streak > 0 else f"🔴 {streak}",
+                "Svit": f"🟢 {streak}" if streak > 0 else f"🔴 0",
                 "Flow": info[2],
                 "RSI": round(rsi_val, 1),
                 "Gap %": round(gap, 2),
@@ -77,20 +76,29 @@ def fetch_momentum_data(insats):
                 "Vinst (SEK)": f"{round(exp_vinst, 1)} kr",
                 "Raw_RSI": rsi_val
             })
-        except:
-            continue
+        except: continue
         progress_bar.progress((i + 1) / len(tickers))
-        
     progress_bar.empty()
     return pd.DataFrame(results)
 
 # --- App Layout ---
-st.title("📈 OMXS30 Momentum Pro v4.3")
+st.title("📈 OMXS30 Momentum Pro v4.4")
 
 with st.sidebar:
-    st.header("Inställningar")
-    insats_input = st.number_input("Investering (SEK)", value=10000)
-    if st.button("🔄 Starta Full Scan"):
+    st.header("⚙️ Inställningar")
+    insats_input = st.number_input("Investering per bolag (SEK)", value=10000)
+    st.write("---")
+    st.subheader("📖 Guide & Förklaring")
+    st.info("""
+    **RSI:** Under 30 betyder att aktien är 'billig'. Över 70 är 'dyr'.
+    
+    **Svit:** Antal dagar i rad aktien har gått upp.
+    
+    **Gap:** Skillnad mellan dagens öppning och gårdagens stängning.
+    
+    **Exp. Return:** Beräknad vinstpotential baserat på momentum-logik.
+    """)
+    if st.button("🔄 Uppdatera All Data"):
         st.cache_data.clear()
         st.rerun()
 
@@ -98,14 +106,19 @@ data = fetch_momentum_data(insats_input)
 
 if not data.empty:
     st.subheader("🔍 Marknadsläget Just Nu")
+    st.write("Sortera genom att klicka på rubrikerna. RSI visar köptryck, Svit visar trenden.")
     st.dataframe(data.drop(columns=['Raw_RSI']), use_container_width=True, hide_index=True)
 
-    st.subheader("🎯 Strategiska Val")
-    top_picks = data.sort_values(by="RSI", ascending=True).head(3)
+    st.write("---")
+    st.subheader("🎯 Strategiska Val (Topp 3 Köplägen)")
+    
+    # Sortera fram de 3 med lägst RSI (mest köpvärt)
+    top_picks = data.sort_values(by="Raw_RSI", ascending=True).head(3)
     cols = st.columns(3)
+    
     for i, (_, row) in enumerate(top_picks.iterrows()):
         with cols[i]:
-            st.metric(row['Bolag'], row['Vinst (SEK)'], f"RSI: {row['RSI']}")
-            st.write("Styrka: Bevaka" if float(row['Raw_RSI']) > 45 else "Styrka: Köpvärt")
+            st.metric(label=row['Bolag'], value=row['Vinst (SEK)'], delta=f"RSI: {row['RSI']}", delta_color="inverse")
+            st.success("Styrka: Köpvärt" if row['Raw_RSI'] < 45 else "Styrka: Bevaka")
 else:
-    st.warning("Ingen data hittades.")
+    st.warning("Hämta data genom att trycka på knappen i menyn.")
