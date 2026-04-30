@@ -19,94 +19,36 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 2. UI & Utökad Guide
-st.title("🚀 OMXS30 Momentum Pro v5.3")
+# 2. UI & Utökad Guide med Symbolförklaring
+st.title("🚀 OMXS30 Momentum Pro v5.4")
 
-with st.expander("📖 KOMPLETT GUIDE & FÖRKLARING"):
+with st.expander("📖 KOMPLETT GUIDE & SYMBOLFÖRKLARING"):
     st.markdown("""
-    ### Förklaring av kolumner:
-    * **Dagens Kurs:** Visar aktuellt pris (15 min fördröjning). 🟢 = Högre än igår, 🔴 = Lägre än igår.
-    * **Gårdagen:** Slutkursen från föregående handelsdag.
-    * **Svit:** Hur många dagar i rad aktien stängt på plus.
-    * **RSI:** Under 40 indikerar att aktien är 'billig' (köpläge).
-    * **Exp. Return:** Beräknad potential baserat på din insats.
+    ### Symbolförklaring (Flow):
+    Dessa symboler visar vilka typer av aktörer eller krafter som driver aktien just nu:
+    * **🏛️ (Institutioner):** Stora fonder och pensionsbolag köper/säljer.
+    * **💰 (Bank/Finans):** Starkt inflöde från investmentbanker.
+    * **⚡ (Gaming/High-Beta):** Hög volatilitet och snabba rörelser.
+    * **📡 (Tech/Mobile):** Teknikdriven trend.
+    * **💎 (Investment):** Investor-drivet eller långsiktigt värdeskapande.
+    * **🏗️ (Industri/Bygg):** Tungt industriellt flow.
+    * **⛏️ (Råvaror):** Gruv- och råvarustyrt momentum.
+    
+    ### Kolumner:
+    * **Dagens Kurs:** 🟢 = Över gårdagens stängning. 🔴 = Under gårdagens stängning.
+    * **Svit:** Antal dagar i rad aktien stängt på plus.
+    * **RSI:** < 40 indikerar översålt läge (Köpläge).
     """)
 
 insats = st.sidebar.number_input("Investering per bolag (SEK)", 1000, 100000, 10000)
-if st.sidebar.button("🔄 Uppdatera Realtidsdata"):
+if st.sidebar.button("🔄 Uppdatera Marknaden"):
     st.cache_data.clear()
     st.rerun()
 
-# 3. Data-motor
+# 3. Data-motor med alla 30 bolag och avancerat Flow
 def fetch_data(insats):
+    # Komplett lista över OMXS30 med numrering och flera symboler
     tickers = {
-        "ABB.ST": ("ABB", "🏛️"), "ALFA.ST": ("Alfa", "🏛️"), "ASSA-B.ST": ("Assa", "🏛️"),
-        "AZN.ST": ("Astra", "🏛️"), "ATCO-A.ST": ("Atlas", "🏛️"), "BOL.ST": ("Boliden", "⛏️"),
-        "ELUX-B.ST": ("Elux", "🏠"), "ERIC-B.ST": ("Eric", "📡"), "ESSITY-B.ST": ("Essity", "🧻"),
-        "EVO.ST": ("Evo", "⚡"), "HM-B.ST": ("HM", "🏦"), "INVE-B.ST": ("Inve B", "💎"),
-        "NDA-SE.ST": ("Nordea", "💰"), "SBB-B.ST": ("SBB", "🏢"), "SEB-A.ST": ("SEB", "💰"),
-        "SWED-A.ST": ("Swed", "💰"), "TELIA.ST": ("Telia", "📱"), "VOLV-B.ST": ("Volvo", "🏛️")
-    }
-    
-    res = []
-    pb = st.progress(0)
-    for i, (t, info) in enumerate(tickers.items()):
-        try:
-            time.sleep(0.4)
-            h = yf.Ticker(t).history(period="60d")
-            if h.empty: continue
-            
-            now = h['Close'].iloc[-1]
-            old = h['Close'].iloc[-2]
-            # Sätt färg-ikon baserat på kursstatus
-            status = "🟢" if now > old else "🔴"
-            
-            # Svit
-            cl = h['Close'].tail(6).tolist()
-            s = 0
-            for j in range(len(cl)-1, 0, -1):
-                if cl[j] > cl[j-1]: s += 1
-                else: break
-            
-            # RSI
-            d = h['Close'].diff()
-            g = (d.where(d > 0, 0)).rolling(14).mean()
-            l = (-d.where(d < 0, 0)).rolling(14).mean()
-            r = round(100 - (100 / (1 + (g/l))).iloc[-1], 1)
-            
-            p = 3.2 if r < 45 else 0.5
-            v = round((p/100) * insats, 1)
-            
-            res.append({
-                "Bolag": info[0],
-                "Flow": info[1],
-                "Dagens Kurs": f"{status} {round(now, 2)} kr",
-                "Gårdagen": f"{round(old, 2)} kr",
-                "Svit": f"🟢 {s}" if s > 0 else "🔴 0",
-                "RSI": r,
-                "Vinst (SEK)": f"{v} kr",
-                "raw_r": r
-            })
-        except: continue
-        pb.progress((i + 1) / len(tickers))
-    pb.empty()
-    return pd.DataFrame(res)
-
-data = fetch_data(insats)
-
-# 4. Presentation
-if not data.empty:
-    st.subheader("🔍 Marknadsanalys & Live-kurser")
-    # Tabellen med färgindikatorer
-    st.dataframe(data.drop(columns=['raw_r']), use_container_width=True, hide_index=True)
-    
-    st.write("---")
-    st.subheader("🎯 Strategiska Val")
-    top = data.sort_values("raw_r").head(3)
-    cols = st.columns(3)
-    for i, (_, row) in enumerate(top.iterrows()):
-        with cols[i]:
-            st.metric(label=row['Bolag'], value=row['Vinst (SEK)'], delta=f"RSI: {row['RSI']}")
-            st.caption(f"Aktuell kurs: {row['Dagens Kurs']}")
-else:
-    st.info("Klicka på 'Uppdatera Realtidsdata'.")
+        "ABB.ST": ("1. ABB", "🏛️ 🏗️"), "ALFA.ST": ("2. Alfa Laval", "🏛️ ⚙️"),
+        "ASSA-B.ST": ("3. Assa Abloy", "🏛️ 🔐"), "AZN.ST": ("4. Astra
+        Zeneca
