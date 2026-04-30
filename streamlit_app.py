@@ -5,7 +5,6 @@ import time
 
 # 1. Design & Mobil-fix
 st.set_page_config(page_title="OMXS30 Momentum Pro", layout="wide")
-
 st.markdown("""
     <style>
     .main { background-color: #f8fafc; }
@@ -20,58 +19,44 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # 2. UI & Guide
-st.title("🚀 OMXS30 Momentum Pro v5.5")
+st.title("🚀 OMXS30 Momentum Pro v5.6")
+with st.expander("📖 GUIDE & SYMBOLER"):
+    st.write("🏛️/🏗️ Industri | 💰/🏦 Bank | ⚡/🎰 Gaming")
+    st.write("RSI < 45: Köpläge | Svit: Dagar med plusstängning.")
 
-with st.expander("📖 KOMPLETT GUIDE & SYMBOLFÖRKLARING"):
-    st.markdown("""
-    ### Flow-symboler:
-    * **🏛️/🏗️:** Institutioner & Industri
-    * **💰/🏦:** Bank & Finans
-    * **⚡/🎰:** Gaming & Volatilitet
-    * **📡/📱:** Tech & Telekom
-    * **💎/🚀:** Investment & Tillväxt
-    * **🏥/🧻:** Hälsovård & Konsument
-    * **⛏️/🌲:** Råvaror & Skog
-    
-    ### Strategi:
-    * **RSI < 45:** Indikerar köpläge (översålt).
-    * **Svit:** Grön siffra visar antal dagar med positiv stängning.
-    """)
-
-insats = st.sidebar.number_input("Investering per bolag (SEK)", 1000, 100000, 10000)
-if st.sidebar.button("🔄 Uppdatera Marknaden"):
+insats = st.sidebar.number_input("Insats (SEK)", 1000, 100000, 10000)
+if st.sidebar.button("🔄 Uppdatera"):
     st.cache_data.clear()
     st.rerun()
 
-# 3. Data-motor (Uppdelad för att undvika kopieringsfel)
+# 3. Data-motor (Korta rader för mobil-copy)
 def fetch_data(insats):
-    # Vi delar upp listan så raderna blir korta och säkra
     t = {}
-    t.update({"ABB.ST": ("1. ABB", "🏛️ 🏗️"), "ALFA.ST": ("2. Alfa Laval", "🏛️ ⚙️")})
-    t.update({"ASSA-B.ST": ("3. Assa Abloy", "🏛️ 🔐"), "AZN.ST": ("4. AstraZeneca", "🏛️ 🏥")})
-    t.update({"ATCO-A.ST": ("5. Atlas Copco A", "🏛️ 🏦"), "ATCO-B.ST": ("6. Atlas Copco B", "🏛️")})
+    t.update({"ABB.ST": ("1. ABB", "🏛️ 🏗️"), "ALFA.ST": ("2. Alfa", "🏛️ ⚙️")})
+    t.update({"ASSA-B.ST": ("3. Assa", "🏛️ 🔐"), "AZN.ST": ("4. Astra", "🏛️ 🏥")})
+    t.update({"ATCO-A.ST": ("5. Atlas A", "🏛️ 🏦"), "ATCO-B.ST": ("6. Atlas B", "🏛️")})
     t.update({"ALIV-SDB.ST": ("7. Autoliv", "🚗 🏛️"), "BOL.ST": ("8. Boliden", "⛏️ 🏭")})
-    t.update({"ELUX-B.ST": ("9. Electrolux", "🏠 🛋️"), "ERIC-B.ST": ("10. Ericsson", "📡 📱")})
-    t.update({"ESSITY-B.ST": ("11. Essity", "🧻 🏥"), "EVO.ST": ("12. Evolution", "⚡ 🎰")})
-    t.update({"GETI-B.ST": ("13. Getinge", "🏥 🏛️"), "HM-B.ST": ("14. H&M B", "🏦 👕")})
-    t.update({"HEXA-B.ST": ("15. Hexagon", "🔍 📡"), "INVE-B.ST": ("16. Investor B", "🏛️ 💎")})
-    t.update({"KINV-B.ST": ("17. Kinnevik B", "🚀 💎"), "NIBE-B.ST": ("18. Nibe", "🔥 🌲")})
-    t.update({"NDA-SE.ST": ("19. Nordea", "💰 🏦"), "SBB-B.ST": ("20. SBB B", "🏢 📉")})
+    t.update({"ELUX-B.ST": ("9. Elux", "🏠 🛋️"), "ERIC-B.ST": ("10. Eric", "📡 📱")})
+    t.update({"ESSITY-B.ST": ("11. Essity", "🧻 🏥"), "EVO.ST": ("12. Evo", "⚡ 🎰")})
+    t.update({"GETI-B.ST": ("13. Getinge", "🏥 🏛️"), "HM-B.ST": ("14. HM", "🏦 👕")})
+    t.update({"HEXA-B.ST": ("15. Hexa", "🔍 📡"), "INVE-B.ST": ("16. Inve B", "🏛️ 💎")})
+    t.update({"KINV-B.ST": ("17. Kinv B", "🚀 💎"), "NIBE-B.ST": ("18. Nibe", "🔥 🌲")})
+    t.update({"NDA-SE.ST": ("19. Nordea", "💰 🏦"), "SBB-B.ST": ("20. SBB", "🏢 📉")})
     t.update({"SCA-B.ST": ("21. SCA B", "🌲 🏭"), "SEB-A.ST": ("22. SEB A", "💰 🏦")})
     t.update({"SINCH.ST": ("23. Sinch", "📱 ⚡"), "SKAF-B.ST": ("24. Skanska", "🏗️ 🏢")})
-    t.update({"SKF-B.ST": ("25. SKF B", "⚙️ 🏛️"), "SHB-A.ST": ("26. Handelsbanken", "💰 🏦")})
-    t.update({"SWED-A.ST": ("27. Swedbank", "💰 🏦"), "TEL2-B.ST": ("28. Tele2", "📱 📡")})
-    t.update({"TELIA.ST": ("29. Telia", "📱 📡"), "VOLV-B.ST": ("30. Volvo B", "🏛️ 🚛")})
+    t.update({"SKF-B.ST": ("25. SKF B", "⚙️ 🏛️"), "SHB-A.ST": ("26. SHB", "💰 🏦")})
+    t.update({"SWED-A.ST": ("27. Swed", "💰 🏦"), "TEL2-B.ST": ("28. Tele2", "📱 📡")})
+    t.update({"TELIA.ST": ("29. Telia", "📱 📡"), "VOLV-B.ST": ("30. Volvo", "🏛️ 🚛")})
     
     res = []
     pb = st.progress(0)
     for i, (tk, info) in enumerate(t.items()):
         try:
-            time.sleep(0.4)
+            time.sleep(0.3)
             h = yf.Ticker(tk).history(period="60d")
             if h.empty: continue
-            now, old = h['Close'].iloc[-1], h['Close'].iloc[-2]
-            stat = "🟢" if now > old else "🔴"
+            n, o = h['Close'].iloc[-1], h['Close'].iloc[-2]
+            stt = "🟢" if n > o else "🔴"
             cl = h['Close'].tail(6).tolist()
             s = 0
             for j in range(len(cl)-1, 0, -1):
@@ -82,10 +67,10 @@ def fetch_data(insats):
             r = round(100 - (100 / (1 + (g/l))).iloc[-1], 1)
             p = 3.2 if r < 45 else 0.5
             res.append({
-                "Nr / Bolag": info[0], "Flow": info[1],
-                "Kurs": f"{stat} {round(now, 2)} kr", "Gårdagen": f"{round(old, 2)} kr",
+                "Bolag": info[0], "Flow": info[1],
+                "Kurs": f"{stt} {round(n, 2)}", "Gårdag": round(o, 2),
                 "Svit": f"🟢 {s}" if s > 0 else "🔴 0", "RSI": r,
-                "Vinst (SEK)": f"{round((p/100)*insats, 1)} kr", "raw": r
+                "Vinst": f"{round((p/100)*insats, 0)} kr", "raw": r
             })
         except: continue
         pb.progress((i + 1) / len(t))
@@ -94,15 +79,16 @@ def fetch_data(insats):
 
 data = fetch_data(insats)
 
-# 4. Presentation
+# 4. Presentation (Extremt korta rader sist)
 if not data.empty:
-    st.subheader("🔍 Marknadsanalys: OMXS30")
+    st.subheader("🔍 Marknadsanalys")
     st.dataframe(data.drop(columns=['raw']), use_container_width=True, hide_index=True)
-    st.write("---")
     st.subheader("🎯 Toppval")
     top = data.sort_values("raw").head(3)
     cols = st.columns(3)
     for i, (_, row) in enumerate(top.iterrows()):
+        lbl = row['Bolag']
+        val = row['Vinst']
+        rsi_txt = f"RSI: {row['RSI']}"
         with cols[i]:
-            st.metric(label=row['Nr / Bolag'], value=row['Vinst (SEK)'], delta=f"RSI: {row['
-            RSI']}")
+            st.metric(label=lbl, value=val, delta=rsi_txt)
