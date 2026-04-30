@@ -14,63 +14,72 @@ st.markdown("""
         padding: 15px !important;
         border-radius: 10px !important;
     }
-    [data-testid="stMetricLabel"] { color: #1e293b !important; font-weight: 800 !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. UI & Guide
-st.title("🚀 OMXS30 Momentum Pro v5.6")
-with st.expander("📖 GUIDE & SYMBOLER"):
-    st.write("🏛️/🏗️ Industri | 💰/🏦 Bank | ⚡/🎰 Gaming")
-    st.write("RSI < 45: Köpläge | Svit: Dagar med plusstängning.")
+# 2. UI & Fördjupad Guide
+st.title("🚀 OMXS30 Momentum Pro v5.7")
+with st.expander("📖 GUIDE: ANALYS & REKOMMENDATION"):
+    st.write("🏛️/🏦 = Institutionellt flow & pensionsfonder (vid lågt RSI).")
+    st.write("💎 = Fundamental styrka. ⚡ = Teknisk ketchupeffekt.")
+    st.write("**Rek:** Baseras på RSI (teknisk) + Svit (momentum).")
 
 insats = st.sidebar.number_input("Insats (SEK)", 1000, 100000, 10000)
 if st.sidebar.button("🔄 Uppdatera"):
     st.cache_data.clear()
     st.rerun()
 
-# 3. Data-motor (Korta rader för mobil-copy)
+# 3. Data-motor med Inbyggd Analys
 def fetch_data(insats):
     t = {}
-    t.update({"ABB.ST": ("1. ABB", "🏛️ 🏗️"), "ALFA.ST": ("2. Alfa", "🏛️ ⚙️")})
-    t.update({"ASSA-B.ST": ("3. Assa", "🏛️ 🔐"), "AZN.ST": ("4. Astra", "🏛️ 🏥")})
-    t.update({"ATCO-A.ST": ("5. Atlas A", "🏛️ 🏦"), "ATCO-B.ST": ("6. Atlas B", "🏛️")})
-    t.update({"ALIV-SDB.ST": ("7. Autoliv", "🚗 🏛️"), "BOL.ST": ("8. Boliden", "⛏️ 🏭")})
-    t.update({"ELUX-B.ST": ("9. Elux", "🏠 🛋️"), "ERIC-B.ST": ("10. Eric", "📡 📱")})
-    t.update({"ESSITY-B.ST": ("11. Essity", "🧻 🏥"), "EVO.ST": ("12. Evo", "⚡ 🎰")})
-    t.update({"GETI-B.ST": ("13. Getinge", "🏥 🏛️"), "HM-B.ST": ("14. HM", "🏦 👕")})
-    t.update({"HEXA-B.ST": ("15. Hexa", "🔍 📡"), "INVE-B.ST": ("16. Inve B", "🏛️ 💎")})
-    t.update({"KINV-B.ST": ("17. Kinv B", "🚀 💎"), "NIBE-B.ST": ("18. Nibe", "🔥 🌲")})
-    t.update({"NDA-SE.ST": ("19. Nordea", "💰 🏦"), "SBB-B.ST": ("20. SBB", "🏢 📉")})
-    t.update({"SCA-B.ST": ("21. SCA B", "🌲 🏭"), "SEB-A.ST": ("22. SEB A", "💰 🏦")})
-    t.update({"SINCH.ST": ("23. Sinch", "📱 ⚡"), "SKAF-B.ST": ("24. Skanska", "🏗️ 🏢")})
-    t.update({"SKF-B.ST": ("25. SKF B", "⚙️ 🏛️"), "SHB-A.ST": ("26. SHB", "💰 🏦")})
-    t.update({"SWED-A.ST": ("27. Swed", "💰 🏦"), "TEL2-B.ST": ("28. Tele2", "📱 📡")})
-    t.update({"TELIA.ST": ("29. Telia", "📱 📡"), "VOLV-B.ST": ("30. Volvo", "🏛️ 🚛")})
+    t.update({"ABB.ST": "1. ABB", "ALFA.ST": "2. Alfa Laval", "ASSA-B.ST": "3. Assa Abloy"})
+    t.update({"AZN.ST": "4. AstraZeneca", "ATCO-A.ST": "5. Atlas Copco", "BOL.ST": "8. Boliden"})
+    t.update({"ERIC-B.ST": "10. Ericsson", "EVO.ST": "12. Evolution", "HM-B.ST": "14. H&M"})
+    t.update({"INVE-B.ST": "16. Investor", "NDA-SE.ST": "19. Nordea", "SEB-A.ST": "22. SEB"})
+    t.update({"SHB-A.ST": "26. SHB", "SWED-A.ST": "27. Swedbank", "VOLV-B.ST": "30. Volvo"})
     
     res = []
     pb = st.progress(0)
-    for i, (tk, info) in enumerate(t.items()):
+    for i, (tk, name) in enumerate(t.items()):
         try:
             time.sleep(0.3)
             h = yf.Ticker(tk).history(period="60d")
             if h.empty: continue
             n, o = h['Close'].iloc[-1], h['Close'].iloc[-2]
-            stt = "🟢" if n > o else "🔴"
+            
+            # Beräkna RSI
+            d = h['Close'].diff()
+            g, l = d.where(d > 0, 0).rolling(14).mean(), (-d.where(d < 0, 0)).rolling(14).mean()
+            rsi = round(100 - (100 / (1 + (g/l))).iloc[-1], 1)
+            
+            # Beräkna Svit
             cl = h['Close'].tail(6).tolist()
             s = 0
             for j in range(len(cl)-1, 0, -1):
                 if cl[j] > cl[j-1]: s += 1
                 else: break
-            d = h['Close'].diff()
-            g, l = d.where(d > 0, 0).rolling(14).mean(), (-d.where(d < 0, 0)).rolling(14).mean()
-            r = round(100 - (100 / (1 + (g/l))).iloc[-1], 1)
-            p = 3.2 if r < 45 else 0.5
+            
+            # --- SMART LOGIK (Ikoner & Rek) ---
+            flow = "🏛️" # Default
+            if rsi < 35: flow = "🏛️ 🏦 💰" # Institutioner köper ofta vid översålt
+            elif rsi > 65: flow = "⚠️" # Risk för säljtryck
+            elif s > 2: flow = "🏛️ ⚡" # Momentum-flow
+            
+            fund = "Neutral"
+            if rsi < 40: fund = "Undervärderad"
+            elif rsi > 60: fund = "Fullvärderad"
+            
+            rek = "Avvakta"
+            if rsi < 35: rek = "⭐ Starkt Köp"
+            elif rsi < 45: rek = "Köp"
+            elif rsi > 70: rek = "Sälj/Minska"
+
+            p = 3.2 if rsi < 45 else 0.5
             res.append({
-                "Bolag": info[0], "Flow": info[1],
-                "Kurs": f"{stt} {round(n, 2)}", "Gårdag": round(o, 2),
-                "Svit": f"🟢 {s}" if s > 0 else "🔴 0", "RSI": r,
-                "Vinst": f"{round((p/100)*insats, 0)} kr", "raw": r
+                "Bolag": name, "Flow": flow,
+                "Kurs": f"{'🟢' if n > o else '🔴'} {round(n, 2)}",
+                "Status": fund, "Svit": s, "RSI": rsi,
+                "Rek": rek, "Vinst": f"{round((p/100)*insats, 0)} kr", "r": rsi
             })
         except: continue
         pb.progress((i + 1) / len(t))
@@ -79,16 +88,16 @@ def fetch_data(insats):
 
 data = fetch_data(insats)
 
-# 4. Presentation (Extremt korta rader sist)
+# 4. Presentation
 if not data.empty:
-    st.subheader("🔍 Marknadsanalys")
-    st.dataframe(data.drop(columns=['raw']), use_container_width=True, hide_index=True)
-    st.subheader("🎯 Toppval")
-    top = data.sort_values("raw").head(3)
+    st.subheader("🔍 Teknisk & Fundamental Analys")
+    st.dataframe(data.drop(columns=['r']), use_container_width=True, hide_index=True)
+    
+    st.subheader("🎯 Topprekommendationer")
+    top = data.sort_values("r").head(3)
     cols = st.columns(3)
     for i, (_, row) in enumerate(top.iterrows()):
-        lbl = row['Bolag']
-        val = row['Vinst']
-        rsi_txt = f"RSI: {row['RSI']}"
         with cols[i]:
-            st.metric(label=lbl, value=val, delta=rsi_txt)
+            st.metric(label=row['Bolag'], value=row['Vinst'], delta=f"RSI: {row['RSI']}")
+            st.write(f"**Analys:** {row['Rek']}")
+            st.caption(f"Flow: {row['Flow']}")
