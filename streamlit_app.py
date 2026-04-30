@@ -65,5 +65,4 @@ def app_run():
             with c[i]:
                 st.metric(r['Bolag'], r['Vinst'], f"RSI: {r['RSI']}")
 
-app_r
-un()
+app_run()
