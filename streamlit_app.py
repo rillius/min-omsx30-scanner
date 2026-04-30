@@ -44,7 +44,7 @@ def fetch_momentum_data(insats):
             
             if df.empty: continue
             
-            # Förbättrad Svit: Hur många av de senaste 5 dagarna var positiva?
+            # Svit-logik
             closes = df['Close'].tail(6).tolist()
             streak = 0
             for j in range(len(closes)-1, 0, -1):
@@ -63,13 +63,7 @@ def fetch_momentum_data(insats):
             gap = ((df['Open'].iloc[-1] - df['Close'].iloc[-2]) / df['Close'].iloc[-2]) * 100
             
             # Exp. Return
-            if streak >= 2 and rsi_val < 65:
-                exp_return = 3.2
-            elif rsi_val > 75:
-                exp_return = -1.5
-            else:
-                exp_return = 0.5
-                
+            exp_return = 3.2 if (streak >= 2 and rsi_val < 65) else (-1.5 if rsi_val > 75 else 0.5)
             exp_vinst = (exp_return / 100) * insats
             
             results.append({
@@ -95,7 +89,7 @@ st.title("📈 OMXS30 Momentum Pro v4.3")
 
 with st.sidebar:
     st.header("Inställningar")
-    insats_input = st.number_input("Investering per aktie (SEK)", value=10000, step=1000)
+    insats_input = st.number_input("Investering (SEK)", value=10000)
     if st.button("🔄 Starta Full Scan"):
         st.cache_data.clear()
         st.rerun()
@@ -106,17 +100,12 @@ if not data.empty:
     st.subheader("🔍 Marknadsläget Just Nu")
     st.dataframe(data.drop(columns=['Raw_RSI']), use_container_width=True, hide_index=True)
 
-    st.subheader("🎯 Strategiska Rekommendationer")
-    # Sortera för att visa de med bäst RSI/Svit kombo
+    st.subheader("🎯 Strategiska Val")
     top_picks = data.sort_values(by="RSI", ascending=True).head(3)
     cols = st.columns(3)
     for i, (_, row) in enumerate(top_picks.iterrows()):
         with cols[i]:
             st.metric(row['Bolag'], row['Vinst (SEK)'], f"RSI: {row['RSI']}")
-            if float(row['Raw_RSI']) < 45:
-                st.success("Styrka: Köpvärt")
-            else:
-                st.info("Styrka: Bevaka")
+            st.write("Styrka: Bevaka" if float(row['Raw_RSI']) > 45 else "Styrka: Köpvärt")
 else:
-    st.warning("Ingen data hittades. Prova att uppd
-    atera.")
+    st.warning("Ingen data hittades.")
